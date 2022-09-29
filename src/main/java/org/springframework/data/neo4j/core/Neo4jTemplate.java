@@ -1170,8 +1170,9 @@ public final class Neo4jTemplate implements
 
 			// first check if the root node(s) exist(s) at all
 			Statement rootNodesStatement = cypherGenerator
-					.prepareMatchOf(entityMetaData, queryFragments.getMatchOn(), queryFragments.getCondition())
-					.returning(Constants.NAME_OF_SYNTHESIZED_ROOT_NODE).build();
+					.prepareMatchOf(entityMetaData, queryFragments.getMatchOn(), queryFragments.getCondition(), queryFragments.getSkip(), queryFragments.getLimit())
+					.returning(Constants.NAME_OF_SYNTHESIZED_ROOT_NODE)
+					.build();
 
 			Map<String, Object> usedParameters = new HashMap<>(parameters);
 			usedParameters.putAll(rootNodesStatement.getParameters());

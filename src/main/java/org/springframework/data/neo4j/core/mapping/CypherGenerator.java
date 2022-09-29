@@ -119,7 +119,9 @@ public enum CypherGenerator {
 
 	public StatementBuilder.OngoingReading prepareMatchOf(NodeDescription<?> nodeDescription,
 														  @Nullable List<PatternElement> initialMatchOn,
-														  @Nullable Condition condition) {
+														  @Nullable Condition condition,
+														  @Nullable Long skip,
+														  @Nullable Number limit) {
 		Node rootNode = createRootNode(nodeDescription);
 
 		StatementBuilder.OngoingReadingWithoutWhere match = prepareMatchOfRootNode(rootNode, initialMatchOn);
@@ -129,12 +131,13 @@ public enum CypherGenerator {
 
 		return match
 				.where(conditionOrNoCondition(condition))
+				.with(rootNode).skip(skip).limit(limit)
 				.with(expressions.toArray(new Expression[]{}));
 	}
 
 	public StatementBuilder.OngoingReading prepareMatchOf(NodeDescription<?> nodeDescription,
 			  RelationshipDescription relationshipDescription, @Nullable List<PatternElement> initialMatchOn,
-														  @Nullable Condition condition) {
+			  @Nullable Condition condition) {
 
 		Node rootNode = createRootNode(nodeDescription);
 

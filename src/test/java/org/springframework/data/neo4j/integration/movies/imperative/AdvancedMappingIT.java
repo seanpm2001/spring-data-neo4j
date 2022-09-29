@@ -22,6 +22,8 @@ import org.neo4j.driver.Session;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.neo4j.test.Neo4jImperativeTestConfiguration;
 import org.springframework.data.neo4j.core.DatabaseSelectionProvider;
 import org.springframework.data.neo4j.core.Neo4jTemplate;
@@ -513,6 +515,14 @@ class AdvancedMappingIT {
 
 		// clean up to keep the other tests healthy
 		neo4jTemplate.deleteById("Test", Movie.class);
+	}
+
+	@Test // GH-2597
+	void findAllWithPageRequestShouldRespectLimit(@Autowired MovieRepository repository) {
+		PageRequest pageRequest = PageRequest.of(0, 1);
+		Page<Movie> oneMovie = repository.findAll(pageRequest);
+
+		assertThat(oneMovie.getContent()).hasSize(1);
 	}
 
 	@Configuration
