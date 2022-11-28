@@ -103,28 +103,13 @@ public class FooTest {
 		}
 	}
 
-	static class QueryRunnerAndCallbacks {
-		final ReactiveTransaction queryRunner;
-
-		final Publisher<Void> commit;
-		final Publisher<Void> rollback;
-
-		QueryRunnerAndCallbacks(ReactiveTransaction queryRunner, Publisher<Void> commit, Publisher<Void> rollback) {
-			this.queryRunner = queryRunner;
-			this.commit = commit;
-			this.rollback = rollback;
-		}
-	}
-
 	record SessionAndTx(ReactiveSession session, ReactiveTransaction tx) {
 	}
 
 	@Test
 	void f2(@Autowired Driver driver) {
-		UUID id = UUID.randomUUID();
 		Flux
 				.range(1, 5)
-				// .doOnCancel(() -> System.out.println("doOnCancel (outer)"))
 				.flatMap(
 						i -> {
 							Mono<SessionAndTx> f = Mono
@@ -137,15 +122,11 @@ public class FooTest {
 									h -> Mono.from(h.tx.rollback()).then(Mono.from(h.session.close()))
 							).switchIfEmpty(Mono.error(new RuntimeException()));
 						}
-						//.doOnCancel(() -> System.out.println("doOnCancel"))
 				)
-				//.collectList()
-				//.as(TransactionalOperator.create(transactionManager)::transactional)
 				.then()
 				.as(StepVerifier::create)
 				.verifyError();
 		System.out.println("---- complete");
-		//	Thread.currentThread().join();
 		try (Session session = driver.session()) {
 			System.out.println(session.run("RETURN 1").single().get(0));
 		}
