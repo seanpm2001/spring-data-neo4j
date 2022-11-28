@@ -2,6 +2,7 @@ package org.springframework.data.neo4j.integration.x;
 
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -12,7 +13,14 @@ import org.neo4j.driver.AuthTokens;
 import org.neo4j.driver.Config;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
+import org.neo4j.driver.Query;
 import org.neo4j.driver.Session;
+import org.neo4j.driver.reactive.ReactiveQueryRunner;
+import org.neo4j.driver.reactive.RxQueryRunner;
+import org.neo4j.driver.reactivestreams.ReactiveResult;
+import org.neo4j.driver.reactivestreams.ReactiveSession;
+import org.neo4j.driver.reactivestreams.ReactiveTransaction;
+import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -40,15 +48,16 @@ import reactor.test.StepVerifier;
 public class FooTest {
 
 	@Test
-	void f(@Autowired MovieRepository movieRepository, @Autowired Driver driver) {
+	void f(@Autowired MovieRepository movieRepository, @Autowired Driver driver) throws InterruptedException {
 		UUID id = UUID.randomUUID();
 		Flux
 				.range(1, 5)
 				// .doOnCancel(() -> System.out.println("doOnCancel (outer)"))
 				.flatMap(
-						i -> movieRepository.findById(id)
+						i -> movieRepository
+								.findById(id)
 								.switchIfEmpty(Mono.error(new RuntimeException()))
-								//.doOnCancel(() -> System.out.println("doOnCancel"))
+						//.doOnCancel(() -> System.out.println("doOnCancel"))
 				)
 				//.collectList()
 				//.as(TransactionalOperator.create(transactionManager)::transactional)
@@ -56,11 +65,91 @@ public class FooTest {
 				.as(StepVerifier::create)
 				.verifyError();
 		System.out.println("---- complete");
+		Thread.currentThread().join();
 		try (Session session = driver.session()) {
 			System.out.println(session.run("RETURN 1").single().get(0));
 		}
 	}
 
+
+	@Test
+	void f(@Autowired Driver driver) throws InterruptedException {
+		UUID id = UUID.randomUUID();
+		Flux
+				.range(1, 5)
+				// .doOnCancel(() -> System.out.println("doOnCancel (outer)"))
+				.flatMap(
+						i -> {
+							var query = new Query("MATCH (p:Product) WHERE p.id = $id RETURN p.title", Collections.singletonMap("id", 0));
+							return Flux.usingWhen(
+											Mono.fromSupplier(() -> driver.session(ReactiveSession.class)),
+											session -> Flux.from(session.run(query))
+													.flatMap(result -> Flux.from(result.records()))
+													.map(record -> record.get(0).asString()),
+											session -> Mono.fromDirect(session.close()))
+									.switchIfEmpty(Mono.error(new RuntimeException()));
+						}
+						//.doOnCancel(() -> System.out.println("doOnCancel"))
+				)
+				//.collectList()
+				//.as(TransactionalOperator.create(transactionManager)::transactional)
+				.then()
+				.as(StepVerifier::create)
+				.verifyError();
+		System.out.println("---- complete");
+		// Thread.currentThread().join();
+		try (Session session = driver.session()) {
+			System.out.println(session.run("RETURN 1").single().get(0));
+		}
+	}
+
+	static class QueryRunnerAndCallbacks {
+		final ReactiveTransaction queryRunner;
+
+		final Publisher<Void> commit;
+		final Publisher<Void> rollback;
+
+		QueryRunnerAndCallbacks(ReactiveTransaction queryRunner, Publisher<Void> commit, Publisher<Void> rollback) {
+			this.queryRunner = queryRunner;
+			this.commit = commit;
+			this.rollback = rollback;
+		}
+	}
+
+	record SessionAndTx(ReactiveSession session, ReactiveTransaction tx) {
+	}
+
+	@Test
+	void f2(@Autowired Driver driver) {
+		UUID id = UUID.randomUUID();
+		Flux
+				.range(1, 5)
+				// .doOnCancel(() -> System.out.println("doOnCancel (outer)"))
+				.flatMap(
+						i -> {
+							Mono<SessionAndTx> f = Mono
+									.just(driver.session(ReactiveSession.class))
+									.flatMap(s -> Mono.fromDirect(s.beginTransaction()).map(tx -> new SessionAndTx(s, tx)));
+							return Flux.usingWhen(f,
+									h -> Flux.from(h.tx.run("MATCH (n) WHERE false = true RETURN n")).flatMap(ReactiveResult::records),
+									h -> Mono.from(h.tx.commit()).then(Mono.from(h.session.close())),
+									(h, e) -> Mono.from(h.tx.rollback()).then(Mono.from(h.session.close())),
+									h -> Mono.from(h.tx.rollback()).then(Mono.from(h.session.close()))
+							).switchIfEmpty(Mono.error(new RuntimeException()));
+						}
+						//.doOnCancel(() -> System.out.println("doOnCancel"))
+				)
+				//.collectList()
+				//.as(TransactionalOperator.create(transactionManager)::transactional)
+				.then()
+				.as(StepVerifier::create)
+				.verifyError();
+		System.out.println("---- complete");
+		//	Thread.currentThread().join();
+		try (Session session = driver.session()) {
+			System.out.println(session.run("RETURN 1").single().get(0));
+		}
+	}
 
 	@Configuration
 	@EnableTransactionManagement
