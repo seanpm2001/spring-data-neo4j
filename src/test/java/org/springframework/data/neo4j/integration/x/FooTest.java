@@ -65,7 +65,6 @@ public class FooTest {
 				.as(StepVerifier::create)
 				.verifyError();
 		System.out.println("---- complete");
-		Thread.currentThread().join();
 		try (Session session = driver.session()) {
 			System.out.println(session.run("RETURN 1").single().get(0));
 		}
