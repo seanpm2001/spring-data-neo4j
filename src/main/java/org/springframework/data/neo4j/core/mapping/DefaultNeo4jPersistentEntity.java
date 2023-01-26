@@ -87,7 +87,7 @@ final class DefaultNeo4jPersistentEntity<T> extends BasicPersistentEntity<T, Neo
 	private List<NodeDescription<?>> childNodeDescriptionsInHierarchy;
 
 	DefaultNeo4jPersistentEntity(TypeInformation<T> information) {
-		super(information);
+		super(information, Comparator.comparing(GraphPropertyDescription::getFieldName));
 
 		this.primaryLabel = computePrimaryLabel(this.getType());
 		this.additionalLabels = Lazy.of(this::computeAdditionalLabels);
