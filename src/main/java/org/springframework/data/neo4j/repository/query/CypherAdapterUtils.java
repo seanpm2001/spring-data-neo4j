@@ -16,7 +16,6 @@
 package org.springframework.data.neo4j.repository.query;
 
 import static org.neo4j.cypherdsl.core.Cypher.property;
-import static org.neo4j.cypherdsl.core.Cypher.raw;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -35,7 +34,6 @@ import org.neo4j.cypherdsl.core.Functions;
 import org.neo4j.cypherdsl.core.SortItem;
 import org.neo4j.cypherdsl.core.StatementBuilder;
 import org.neo4j.cypherdsl.core.SymbolicName;
-import org.neo4j.cypherdsl.core.internal.SchemaNames;
 import org.neo4j.driver.Value;
 import org.springframework.data.domain.KeysetScrollPosition;
 import org.springframework.data.domain.Pageable;
@@ -66,21 +64,25 @@ public final class CypherAdapterUtils {
 		return order -> {
 
 			String domainProperty = order.getProperty();
-			String rawDomainProperty = order.getProperty();
-			boolean propertyIsQualified = domainProperty.contains(".");
+			boolean propertyIsQualifiedOrComposite = domainProperty.contains(".");
 			SymbolicName root;
-			if (!propertyIsQualified) {
+			if (!propertyIsQualifiedOrComposite) {
 				root = Constants.NAME_OF_TYPED_ROOT_NODE.apply(nodeDescription);
 			} else {
-				int indexOfSeparator = domainProperty.indexOf(".");
-				root = Cypher.name(domainProperty.substring(0, indexOfSeparator));
-				domainProperty = domainProperty.substring(indexOfSeparator + 1);
+				// need to check first if this is really a qualified name or the "qualifier" is a composite property
+				if (nodeDescription.getGraphProperty(domainProperty.split("\\.")[0]).isEmpty()) {
+					int indexOfSeparator = domainProperty.indexOf(".");
+					root = Cypher.name(domainProperty.substring(0, indexOfSeparator));
+					domainProperty = domainProperty.substring(indexOfSeparator + 1);
+				} else {
+					root = Constants.NAME_OF_TYPED_ROOT_NODE.apply(nodeDescription);
+				}
 			}
 
 			var optionalGraphProperty = nodeDescription.getGraphProperty(domainProperty);
 			// try to resolve if this is a composite property
 			if (optionalGraphProperty.isEmpty()) {
-				var domainPropertyPrefix = rawDomainProperty.split("\\.")[0];
+				var domainPropertyPrefix = domainProperty.split("\\.")[0];
 				optionalGraphProperty = nodeDescription.getGraphProperty(domainPropertyPrefix);
 			}
 			if (optionalGraphProperty.isEmpty()) {
@@ -91,10 +93,10 @@ public final class CypherAdapterUtils {
 			if (graphProperty.isInternalIdProperty()) {
 				// Not using the id expression here, as the root will be referring to the constructed map being returned.
 				expression = property(root, Constants.NAME_OF_INTERNAL_ID);
-			} else if (graphProperty.isComposite() && !rawDomainProperty.contains(".")) {
-				throw new IllegalStateException(String.format("Cannot order by composite property: '%s'. Only ordering by its nested fields is allowed.", rawDomainProperty));
+			} else if (graphProperty.isComposite() && !domainProperty.contains(".")) {
+				throw new IllegalStateException(String.format("Cannot order by composite property: '%s'. Only ordering by its nested fields is allowed.", domainProperty));
 			} else if (graphProperty.isComposite()) {
-				expression = property(root, rawDomainProperty);
+				expression = property(root, domainProperty);
 			} else {
 				expression = property(root, graphProperty.getPropertyName());
 				if (order.isIgnoreCase()) {

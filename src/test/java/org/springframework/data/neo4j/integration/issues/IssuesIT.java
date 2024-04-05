@@ -281,10 +281,12 @@ class IssuesIT extends TestBase {
 		CityModel aachen = new CityModel();
 		aachen.setName("Aachen");
 		aachen.setExoticProperty("Cars");
+		aachen.setCompositeProperty(Map.of("language", "German"));
 
 		CityModel utrecht = new CityModel();
 		utrecht.setName("Utrecht");
 		utrecht.setExoticProperty("Bikes");
+		utrecht.setCompositeProperty(Map.of("language", "Dutch"));
 
 		cityModelRepository.saveAll(List.of(aachen, utrecht));
 	}
@@ -734,6 +736,20 @@ class IssuesIT extends TestBase {
 		assertThat(reloaded.getMayor()).isNotNull();
 		assertThat(reloaded.getCitizens()).hasSize(1);
 		assertThat(reloaded.getCityEmployees()).hasSize(1);
+	}
+
+	@Test
+	@Tag("GH-2884")
+	void sortByCompositeProperty(@Autowired CityModelRepository repository) {
+		Sort sort = Sort.by(Sort.Order.asc("compositeProperty.language"));
+		List<CityModel> models = repository.findAll(sort);
+
+		assertThat(models).extracting("name").containsExactlyInAnyOrder("Utrecht", "Aachen");
+
+		Sort sortDesc = Sort.by(Sort.Order.desc("compositeProperty.language"));
+		models = repository.findAll(sortDesc);
+
+		assertThat(models).extracting("name").containsExactlyInAnyOrder("Aachen", "Utrecht");
 	}
 
 	@Test

@@ -69,7 +69,11 @@ class CypherAdapterUtilsTest {
 		var mappingContext = new Neo4jMappingContext();
 		var entity = mappingContext.getPersistentEntity(ScrollingEntity.class);
 
-		System.out.println(CypherAdapterUtils.sortAdapterFor(entity).apply(Sort.Order.asc("basicComposite.blubb")));
+		var sortItem = CypherAdapterUtils.sortAdapterFor(entity).apply(Sort.Order.asc("basicComposite.blubb"));
+		var node = Cypher.anyNode("scrollingEntity");
+		var statement = Cypher.match(node).returning(node).orderBy(sortItem).build();
+		assertThat(Renderer.getDefaultRenderer().render(statement))
+				.isEqualTo("MATCH (scrollingEntity) RETURN scrollingEntity ORDER BY scrollingEntity.`basicComposite.blubb`");
 	}
 
 	@Test
