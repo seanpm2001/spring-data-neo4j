@@ -744,12 +744,21 @@ class IssuesIT extends TestBase {
 		Sort sort = Sort.by(Sort.Order.asc("compositeProperty.language"));
 		List<CityModel> models = repository.findAll(sort);
 
-		assertThat(models).extracting("name").containsExactlyInAnyOrder("Utrecht", "Aachen");
+		assertThat(models).extracting("name").containsExactly("Utrecht", "Aachen");
 
 		Sort sortDesc = Sort.by(Sort.Order.desc("compositeProperty.language"));
 		models = repository.findAll(sortDesc);
 
-		assertThat(models).extracting("name").containsExactlyInAnyOrder("Aachen", "Utrecht");
+		assertThat(models).extracting("name").containsExactly("Aachen", "Utrecht");
+	}
+
+
+	@Test
+	@Tag("GH-2884")
+	void sortByCompositePropertyForCyclicDomainReturn(@Autowired SkuRORepository repository) {
+		List<SkuRO> result = repository.findAll(Sort.by("composite.a"));
+
+		assertThat(result).extracting("number").containsExactly(3L, 2L, 1L, 0L);
 	}
 
 	@Test
