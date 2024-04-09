@@ -96,7 +96,7 @@ public final class CypherAdapterUtils {
 			} else if (graphProperty.isComposite() && !domainProperty.contains(".")) {
 				throw new IllegalStateException(String.format("Cannot order by composite property: '%s'. Only ordering by its nested fields is allowed.", domainProperty));
 			} else if (graphProperty.isComposite()) {
-				expression = property(root, domainProperty);
+				expression = property(root, Constants.NAME_OF_ALL_PROPERTIES, domainProperty);
 			} else {
 				expression = property(root, graphProperty.getPropertyName());
 				if (order.isIgnoreCase()) {
