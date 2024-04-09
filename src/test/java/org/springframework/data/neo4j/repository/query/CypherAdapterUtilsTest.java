@@ -73,7 +73,7 @@ class CypherAdapterUtilsTest {
 		var node = Cypher.anyNode("scrollingEntity");
 		var statement = Cypher.match(node).returning(node).orderBy(sortItem).build();
 		assertThat(Renderer.getDefaultRenderer().render(statement))
-				.isEqualTo("MATCH (scrollingEntity) RETURN scrollingEntity ORDER BY scrollingEntity.`basicComposite.blubb`");
+				.isEqualTo("MATCH (scrollingEntity) RETURN scrollingEntity ORDER BY scrollingEntity.__allProperties__.`basicComposite.blubb`");
 	}
 
 	@Test
